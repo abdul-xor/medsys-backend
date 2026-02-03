@@ -74,7 +74,6 @@ pipeline {
                 VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
                 NEW_WAR=${RELEASES}/medsys-${VERSION}.war
 
-                # Backup current
                 if [ -L "${BASE_DIR}/current" ]; then
                     PREV=$(readlink -f ${BASE_DIR}/current)
                     ln -sfn "$PREV" ${BASE_DIR}/backup
@@ -86,16 +85,13 @@ pipeline {
                 cp "$WAR_FILE" "$NEW_WAR"
                 ln -sfn "$NEW_WAR" ${BASE_DIR}/current
 
-                # Stop app on port
                 PID=$(lsof -t -i:${APP_PORT} || true)
                 [ -n "$PID" ] && kill -9 $PID
 
-                # Start new app
                 nohup java -jar ${BASE_DIR}/current > ${BASE_DIR}/app.log 2>&1 &
 
                 sleep 20
 
-                # Health check
                 curl -sf http://localhost:${APP_PORT}/actuator/health || (
                     echo "Health check failed — rolling back"
 
@@ -111,6 +107,8 @@ pipeline {
                 '''
             }
         }
+
+    }  
 
     post {
         success {
