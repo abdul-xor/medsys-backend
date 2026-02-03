@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.MedSys.MedicalEquipmentSystemApplicationTests
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 63.7 s - in com.MedSys.MedicalEquipmentSystemApplicationTests

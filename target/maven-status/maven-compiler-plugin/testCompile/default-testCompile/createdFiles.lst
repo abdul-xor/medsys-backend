@@ -1,1 +1,7 @@
-com/MedSys/MedicalEquipmentSystemApplicationTests.class
+com\MedSys\TechnicianControllerTest.class
+com\MedSys\SupplierControllerTest.class
+com\MedSys\HospitalControllerTest.class
+com\MedSys\RegisterAndLoginControllerTest$1.class
+com\MedSys\RegisterAndLoginControllerTest$2.class
+com\MedSys\MedicalEquipmentSystemApplicationTests.class
+com\MedSys\RegisterAndLoginControllerTest.class
