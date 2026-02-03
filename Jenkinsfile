@@ -16,8 +16,20 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/abdul-xor/medsys-backend.git'
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/abdul-xor/medsys-backend.git'
+                    ]],
+                    extensions: [
+                        [$class: 'CloneOption',
+                        shallow: true,
+                        depth: 1,
+                        noTags: true,
+                        timeout: 30]
+                    ]
+                ])
             }
         }
 
