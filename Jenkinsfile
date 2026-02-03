@@ -72,18 +72,22 @@ pipeline {
                 mkdir -p ${RELEASES}
 
                 VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
-                NEW_JAR=${RELEASES}/medsys-${VERSION}.jar
+                NEW_WAR=${RELEASES}/medsys-${VERSION}.war
 
-                # Save backup
+                # Backup current
                 if [ -L "${BASE_DIR}/current" ]; then
-                    ln -sfn $(readlink -f ${BASE_DIR}/current) ${BASE_DIR}/backup
+                    PREV=$(readlink -f ${BASE_DIR}/current)
+                    ln -sfn "$PREV" ${BASE_DIR}/backup
                 fi
 
-                cp target/*.jar $NEW_JAR
-                ln -sfn $NEW_JAR ${BASE_DIR}/current
+                WAR_FILE=$(ls target/*.war 2>/dev/null | head -1)
+                [ -z "$WAR_FILE" ] && { echo "WAR not found"; exit 1; }
 
-                # Stop old app
-                PID=$(pgrep -f java || true)
+                cp "$WAR_FILE" "$NEW_WAR"
+                ln -sfn "$NEW_WAR" ${BASE_DIR}/current
+
+                # Stop app on port
+                PID=$(lsof -t -i:${APP_PORT} || true)
                 [ -n "$PID" ] && kill -9 $PID
 
                 # Start new app
@@ -92,17 +96,21 @@ pipeline {
                 sleep 20
 
                 # Health check
-                curl -sf http://localhost:${APP_PORT}/actuator/health \
-                || (
-                    echo "Health check failed — rollback"
-                    ln -sfn $(readlink -f ${BASE_DIR}/backup) ${BASE_DIR}/current
-                    nohup java -jar ${BASE_DIR}/current > ${BASE_DIR}/app.log 2>&1 &
+                curl -sf http://localhost:${APP_PORT}/actuator/health || (
+                    echo "Health check failed — rolling back"
+
+                    PID=$(lsof -t -i:${APP_PORT} || true)
+                    [ -n "$PID" ] && kill -9 $PID
+
+                    if [ -L "${BASE_DIR}/backup" ]; then
+                        ln -sfn $(readlink -f ${BASE_DIR}/backup) ${BASE_DIR}/current
+                        nohup java -jar ${BASE_DIR}/current > ${BASE_DIR}/app.log 2>&1 &
+                    fi
                     exit 1
                 )
                 '''
             }
         }
-    }
 
     post {
         success {
