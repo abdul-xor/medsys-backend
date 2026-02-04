@@ -20,10 +20,10 @@
     <description>Demo project for Spring Boot</description>
 
     <!-- Important: Build WAR for external Tomcat -->
-    <packaging>war</packaging>
+    <packaging>jar</packaging>
 
     <properties>
-        <java.version>11</java.version>
+        <java.version>17</java.version>
         <sonar.projectKey>medsys-backend</sonar.projectKey>
         <sonar.host.url>http://localhost:9000</sonar.host.url>
     </properties>
@@ -69,7 +69,7 @@
         </dependency>
 
         <!-- Spring Web without embedded Tomcat -->
-        <dependency>
+        <!-- <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
             <exclusions>
@@ -78,14 +78,19 @@
                     <artifactId>spring-boot-starter-tomcat</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
+        </dependency> -->
 
         <!-- Tomcat provided by external container -->
-        <dependency>
+        <!-- <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-tomcat</artifactId>
             <scope>provided</scope>
+        </dependency> -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
 
         <!-- Testing -->
         <dependency>
@@ -100,11 +105,11 @@
         </dependency>
 
         <!-- H2 Database (optional) -->
-        <dependency>
+        <!-- <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
-        </dependency>
+        </dependency> -->
 
         <!-- Hot reload (optional) -->
         <dependency>
@@ -112,6 +117,7 @@
             <artifactId>spring-boot-devtools</artifactId>
             <optional>true</optional>
         </dependency>
+
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
