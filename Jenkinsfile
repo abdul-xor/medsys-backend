@@ -2,10 +2,13 @@ pipeline {
     agent any
 
     environment {
-        APP_NAME = "medsys"
-        APP_PORT = "8085"
-        BASE_DIR = "/opt/apps/dev/medsys"
-        RELEASES = "${BASE_DIR}/releases"
+        APP_NAME    = "medsys"
+        APP_PORT    = "8085"
+        ENV         = "dev"
+        BASE_DIR    = "/opt/apps/dev/medsys"
+        RELEASES    = "${BASE_DIR}/releases"
+        CURRENT     = "${BASE_DIR}/current"
+        BACKUP      = "${BASE_DIR}/backup"
     }
 
     triggers {
@@ -16,44 +19,30 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/main']],
-                    userRemoteConfigs: [[
-                        url: 'https://github.com/abdul-xor/medsys-backend.git'
-                    ]],
-                    extensions: [
-                        [$class: 'CloneOption',
-                        shallow: true,
-                        depth: 1,
-                        noTags: true,
-                        timeout: 30]
-                    ]
-                ])
+                checkout scm
             }
         }
 
-        stage('Build & Test & Coverage') {
+        stage('Build, Test & Coverage') {
             steps {
                 sh '''
-                chmod +x mvnw
-                ./mvnw clean test package
-                MAVEN_OPTS="-Xmx512m" ./mvnw clean test package
+                    chmod +x mvnw
+                    MAVEN_OPTS="-Xmx512m" ./mvnw clean test package
                 '''
             }
         }
 
         stage('SonarQube Analysis') {
+            environment {
+                SONAR_TOKEN = credentials('SONAR_TOKEN_MEDSYS')
+            }
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    withCredentials([
-                        string(credentialsId: 'SONAR_TOKEN_MEDSYS', variable: 'SONAR_TOKEN')
-                    ]) {
-                        sh '''
+                    sh '''
                         ./mvnw sonar:sonar \
-                        -Dsonar.login=$SONAR_TOKEN
-                        '''
-                    }
+                        -Dsonar.login=$SONAR_TOKEN \
+                        -Dsonar.projectKey=medsys-backend
+                    '''
                 }
             }
         }
@@ -66,7 +55,7 @@ pipeline {
                             waitForQualityGate abortPipeline: true
                         }
                     } catch (err) {
-                        echo "Quality Gate timed out – continuing DEV deployment"
+                        echo "Quality Gate timeout – continuing DEV deployment"
                     }
                 }
             }
@@ -75,55 +64,63 @@ pipeline {
         stage('Deploy with Auto Rollback') {
             steps {
                 sh '''
-                set -e
+                    set -e
 
-                mkdir -p ${RELEASES}
+                    mkdir -p ${RELEASES}
 
-                VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
-                NEW_WAR=${RELEASES}/medsys-${VERSION}.war
+                    VERSION=$(./mvnw help:evaluate \
+                        -Dexpression=project.version -q -DforceStdout)
 
-                if [ -L "${BASE_DIR}/current" ]; then
-                    PREV=$(readlink -f ${BASE_DIR}/current)
-                    ln -sfn "$PREV" ${BASE_DIR}/backup
-                fi
+                    JAR_NAME=medical-equipment-and-tracking-system.jar
+                    NEW_JAR=${RELEASES}/${APP_NAME}-${VERSION}.jar
 
-                WAR_FILE=$(ls target/*.war 2>/dev/null | head -1)
-                [ -z "$WAR_FILE" ] && { echo "WAR not found"; exit 1; }
+                    # Backup current version
+                    if [ -L "${CURRENT}" ]; then
+                        ln -sfn $(readlink -f ${CURRENT}) ${BACKUP}
+                    fi
 
-                cp "$WAR_FILE" "$NEW_WAR"
-                ln -sfn "$NEW_WAR" ${BASE_DIR}/current
+                    cp target/${JAR_NAME} ${NEW_JAR}
+                    ln -sfn ${NEW_JAR} ${CURRENT}
 
-                PID=$(lsof -t -i:${APP_PORT} || true)
-                [ -n "$PID" ] && kill -9 $PID
-
-                nohup java -jar ${BASE_DIR}/current --server.port=${APP_PORT} > ${BASE_DIR}/app.log 2>&1 &
-
-                sleep 20
-
-                curl -sf http://localhost:${APP_PORT}/actuator/health || (
-                    echo "Health check failed — rolling back"
-
+                    # Stop app if running
                     PID=$(lsof -t -i:${APP_PORT} || true)
                     [ -n "$PID" ] && kill -9 $PID
 
-                    if [ -L "${BASE_DIR}/backup" ]; then
-                        ln -sfn $(readlink -f ${BASE_DIR}/backup) ${BASE_DIR}/current
-                        nohup java -jar ${BASE_DIR}/current --server.port=${APP_PORT} > ${BASE_DIR}/app.log 2>&1 &
-                    fi
-                    exit 1
-                )
+                    # Start app
+                    nohup java -jar ${CURRENT} \
+                      --spring.profiles.active=${ENV} \
+                      --server.port=${APP_PORT} \
+                      > ${BASE_DIR}/app.log 2>&1 &
+
+                    sleep 25
+
+                    # Health check
+                    curl -sf http://localhost:${APP_PORT}/actuator/health || (
+                        echo "Health check failed – rolling back"
+
+                        PID=$(lsof -t -i:${APP_PORT} || true)
+                        [ -n "$PID" ] && kill -9 $PID
+
+                        if [ -L "${BACKUP}" ]; then
+                            ln -sfn $(readlink -f ${BACKUP}) ${CURRENT}
+                            nohup java -jar ${CURRENT} \
+                              --spring.profiles.active=${ENV} \
+                              --server.port=${APP_PORT} \
+                              > ${BASE_DIR}/app.log 2>&1 &
+                        fi
+                        exit 1
+                    )
                 '''
             }
         }
-
-    }  
+    }
 
     post {
         success {
-            echo "Build, Test, Sonar & Deploy successful"
+            echo "Build, Test, Sonar & Deployment successful"
         }
         failure {
-            echo "Pipeline failed — rollback applied if needed"
+            echo "Pipeline failed – rollback executed if required"
         }
     }
 }
