@@ -38,6 +38,7 @@ pipeline {
                 sh '''
                 chmod +x mvnw
                 ./mvnw clean test package
+                MAVEN_OPTS="-Xmx512m" ./mvnw clean test package
                 '''
             }
         }
