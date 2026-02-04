@@ -88,7 +88,7 @@ pipeline {
                 PID=$(lsof -t -i:${APP_PORT} || true)
                 [ -n "$PID" ] && kill -9 $PID
 
-                nohup java -jar ${BASE_DIR}/current > ${BASE_DIR}/app.log 2>&1 &
+                nohup java -jar ${BASE_DIR}/current --server.port=${APP_PORT} > ${BASE_DIR}/app.log 2>&1 &
 
                 sleep 20
 
@@ -100,7 +100,7 @@ pipeline {
 
                     if [ -L "${BASE_DIR}/backup" ]; then
                         ln -sfn $(readlink -f ${BASE_DIR}/backup) ${BASE_DIR}/current
-                        nohup java -jar ${BASE_DIR}/current > ${BASE_DIR}/app.log 2>&1 &
+                        nohup java -jar ${BASE_DIR}/current --server.port=${APP_PORT} > ${BASE_DIR}/app.log 2>&1 &
                     fi
                     exit 1
                 )
