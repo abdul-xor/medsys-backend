@@ -46,7 +46,14 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh 'mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN'
+                    withCredentials([
+                        string(credentialsId: 'SONAR_TOKEN_MEDSYS', variable: 'SONAR_TOKEN')
+                    ]) {
+                        sh '''
+                        ./mvnw sonar:sonar \
+                        -Dsonar.login=$SONAR_TOKEN
+                        '''
+                    }
                 }
             }
         }
